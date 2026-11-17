@@ -1,0 +1,1 @@
+export { default } from '@/screens/coming-soon/coming-soon.screen';
