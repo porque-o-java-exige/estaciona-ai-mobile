@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/space-grotesk": "^0.4.1",
+    "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^7.0.7",
     "@stomp/stompjs": "^7.5.0",
     "@tanstack/react-query": "^5.107.2",
