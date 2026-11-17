@@ -1,0 +1,120 @@
+export const theme = {
+  colors: {
+    pureWhite: '#FFFFFF',
+
+    white: {
+      100: '#E6E6E6',
+      200: '#E8E8E8',
+      300: '#EAEAEA',
+      400: '#ECECEC',
+      500: '#EEEEEE',
+      600: '#F0F0F0',
+      700: '#F2F2F2',
+      800: '#F4F4F4',
+      900: '#F6F6F6',
+      1000: '#F8F8F8',
+      1100: '#FAFAFA',
+    },
+
+    black: {
+      100: '#E6E6E6',
+      200: '#D0D0D0',
+      300: '#BBBBBB',
+      400: '#A6A6A6',
+      500: '#919191',
+      600: '#7C7C7C',
+      700: '#676767',
+      800: '#515151',
+      900: '#3C3C3C',
+      1000: '#272727',
+      1100: '#121212',
+    },
+
+    primary: {
+      100: '#CCE2FF',
+      200: '#C6DFFF',
+      300: '#C0DCFF',
+      400: '#BBD8FF',
+      500: '#B5D5FF',
+      600: '#AFD2FF',
+      700: '#A9CFFF',
+      800: '#A3CBFF',
+      900: '#9EC8FF',
+      1000: '#98C5FF',
+      transparent15: 'rgba(146, 194, 255, 0.15)',
+    },
+
+    blue: {
+      100: '#D3E2F8',
+      200: '#BCD2F4',
+      300: '#A4C2F0',
+      400: '#8DB3EC',
+      500: '#75A3E9',
+      600: '#5E93E5',
+      700: '#4683E1',
+      800: '#2F74DD',
+      900: '#2266CF',
+      1000: '#1E5BB7',
+      1100: '#154895',
+      transparent10: 'rgba(211, 226, 248, 0.10)',
+      transparent25: 'rgba(211, 226, 248, 0.25)',
+      transparent50: 'rgba(211, 226, 248, 0.50)',
+    },
+
+    red: {
+      100: '#F6D5DB',
+      200: '#F2C4CC',
+      300: '#EFB3BD',
+      400: '#EBA2AE',
+      500: '#E7919F',
+      600: '#E37F91',
+      700: '#E06E82',
+      800: '#DC5D73',
+      900: '#D84C64',
+      1000: '#D53B55',
+    },
+
+    green: {
+      100: '#D3F8EA',
+      200: '#C0F4E1',
+      300: '#ADF1D8',
+      400: '#9AEECF',
+      500: '#86EAC5',
+      600: '#73E7BC',
+      700: '#60E4B3',
+      800: '#4CE0AA',
+      900: '#39DDA0',
+      1000: '#26DA97',
+      1100: '#34CCA4',
+    },
+
+    yellow: {
+      100: '#FDECCE',
+      200: '#FCE4BB',
+      300: '#FBDCA7',
+      400: '#FBD494',
+      500: '#FACD80',
+      600: '#F9C56D',
+      700: '#F8BD59',
+      800: '#F7B546',
+      900: '#F7AE32',
+      1000: '#F6A61F',
+      1100: '#F59E0B',
+    },
+  },
+
+  fonts: {
+    regular: 'SpaceGrotesk_400Regular',
+    medium: 'SpaceGrotesk_500Medium',
+    bold: 'SpaceGrotesk_700Bold',
+  },
+
+  radii: {
+    sm: 6,
+    md: 10,
+    lg: 16,
+    full: 9999,
+  },
+} as const;
+
+export type AppTheme = typeof theme;
