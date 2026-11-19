@@ -1,28 +1,55 @@
 import axios from 'axios';
-import { tokenStorage } from '@/storage/token-storage';
+import { env } from '@/config/env';
 
 export const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL,
-  timeout: 15000,
+  baseURL: env.apiUrl,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
 });
 
-api.interceptors.request.use(async (config) => {
-  const token = await tokenStorage.get();
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+function extractNativeReason(request: unknown): string {
+  if (
+    typeof request === 'object' &&
+    request !== null &&
+    '_response' in request &&
+    typeof (request as { _response: unknown })._response === 'string'
+  ) {
+    return (request as { _response: string })._response;
   }
-  return config;
-});
+  return '';
+}
 
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      await tokenStorage.remove();
+if (__DEV__) {
+  api.interceptors.request.use((config) => {
+    console.log(
+      `[API Request] ${config.method?.toUpperCase()} ${config.baseURL ?? ''}${config.url ?? ''}`,
+      config.data
+    );
+    return config;
+  });
+
+  api.interceptors.response.use(
+    (response) => {
+      console.log(
+        `[API Response] ${response.status} ${response.config.url ?? ''}`,
+        response.data
+      );
+      return response;
+    },
+    (error: unknown) => {
+      if (axios.isAxiosError(error)) {
+        console.log('[API Error]', {
+          url: `${error.config?.baseURL ?? ''}${error.config?.url ?? ''}`,
+          code: error.code,
+          status: error.response?.status,
+          nativeReason: extractNativeReason(error.request),
+          data: error.response?.data,
+        });
+      }
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
-  }
-);
+  );
+}
