@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
-import comingSoonImg from '@/assets/images/coming-soon.png';
+import comingSoonImg from '@assets/images/coming-soon.png';
 import * as S from './coming-soon.styles';
 
 export default function ComingSoonScreen() {
