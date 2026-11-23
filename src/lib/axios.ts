@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '@/config/env';
+import { tokenStorage } from '@/storage/token-storage';
 
 export const api = axios.create({
   baseURL: env.apiUrl,
@@ -22,15 +23,24 @@ function extractNativeReason(request: unknown): string {
   return '';
 }
 
-if (__DEV__) {
-  api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  const token = await tokenStorage.getToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (__DEV__) {
     console.log(
       `[API Request] ${config.method?.toUpperCase()} ${config.baseURL ?? ''}${config.url ?? ''}`,
       config.data
     );
-    return config;
-  });
+  }
 
+  return config;
+});
+
+if (__DEV__) {
   api.interceptors.response.use(
     (response) => {
       console.log(
