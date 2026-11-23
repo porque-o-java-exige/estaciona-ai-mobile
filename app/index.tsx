@@ -22,7 +22,7 @@ export default function Index() {
     }
 
     if (isAuthenticated) {
-      router.replace('/(main)/(tabs)/bookings');
+      router.replace('/(main)/(tabs)');
     } else {
       router.replace('/(auth)/login');
     }

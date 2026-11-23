@@ -8,7 +8,13 @@
     "scheme": "estacionaai",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyDbXF0b5_TbV1Z-Nm1SoQx3RJsOdRVaUvg"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para encontrar garagens próximas a você."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +23,16 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDbXF0b5_TbV1Z-Nm1SoQx3RJsOdRVaUvg"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -32,6 +47,12 @@
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Precisamos da sua localização para encontrar garagens próximas a você."
         }
       ],
       "expo-secure-store",
