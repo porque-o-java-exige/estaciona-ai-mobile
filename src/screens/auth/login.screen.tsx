@@ -41,7 +41,7 @@ export default function LoginScreen() {
   async function onSubmit(data: LoginFormData) {
     try {
       await loginUser(data);
-      router.replace('/(main)/(tabs)/bookings');
+      router.replace('/(main)/(tabs)');
     } catch (error) {
       Alert.alert('Erro ao entrar', getLoginErrorMessage(error));
     }
