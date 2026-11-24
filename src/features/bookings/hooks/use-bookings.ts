@@ -1,4 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { garageService } from '@/features/garages/services/garage.service';
+import { GarageDetail } from '@/features/garages/types/garage.types';
 import { bookingService } from '../services/booking.service';
 import {
   BookingResponse,
@@ -6,11 +13,50 @@ import {
   DriverVehicle,
 } from '../types/booking.types';
 
+export interface EnrichedBooking extends BookingResponse {
+  garage?: GarageDetail;
+}
+
 export function useMyBookings() {
   return useQuery<BookingResponse[]>({
     queryKey: ['my-bookings'],
     queryFn: bookingService.getMyBookings,
   });
+}
+
+export function useEnrichedBookings() {
+  const bookingsQuery = useMyBookings();
+  const bookings = bookingsQuery.data ?? [];
+
+  const uniqueGarageIds = Array.from(
+    new Set(bookings.map((b) => b.garageId).filter(Boolean))
+  );
+
+  const garageQueries = useQueries({
+    queries: uniqueGarageIds.map((garageId) => ({
+      queryKey: ['garage-detail', garageId],
+      queryFn: () => garageService.getGarageById(garageId),
+      staleTime: 1000 * 60 * 5,
+    })),
+  });
+
+  const garageMap = new Map<string, GarageDetail>();
+  uniqueGarageIds.forEach((id, index) => {
+    const detail = garageQueries[index]?.data;
+    if (detail) {
+      garageMap.set(id, detail);
+    }
+  });
+
+  const enrichedData: EnrichedBooking[] = bookings.map((booking) => ({
+    ...booking,
+    garage: garageMap.get(booking.garageId),
+  }));
+
+  return {
+    ...bookingsQuery,
+    data: enrichedData,
+  };
 }
 
 export function useMyVehicles() {
