@@ -13,6 +13,10 @@ export interface GarageNearbyItem {
   pricePerDay: number | null;
   available: boolean;
   distanceInKm: number;
+  coverImageUrl?: string | null;
+  averageRating?: number | null;
+  description?: string | null;
+  availableSpots?: number | null;
 }
 
 export interface PageResponse<T> {
@@ -56,4 +60,10 @@ export interface NearbyGaragesParams {
   radius?: number;
   page?: number;
   size?: number;
+}
+
+export interface GarageSearchFilters {
+  nearMeOnly: boolean;
+  maxPricePerHour: number | null;
+  maxRadiusKm: number;
 }
