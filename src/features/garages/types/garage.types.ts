@@ -44,6 +44,12 @@ export interface GarageDetail {
   updatedAt: string;
 }
 
+export interface GarageRating {
+  garageId: string;
+  averageRating: number;
+  totalReviews: number;
+}
+
 export interface NearbyGaragesParams {
   lat: number;
   lng: number;

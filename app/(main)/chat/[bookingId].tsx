@@ -1,9 +1,1 @@
-import { Text, View } from 'react-native';
-
-export default function RoutePlaceholder() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Em construção</Text>
-    </View>
-  );
-}
+export { default } from '@/screens/chat/chat-room-detail.screen';

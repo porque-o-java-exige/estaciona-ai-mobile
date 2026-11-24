@@ -104,9 +104,12 @@ export const theme = {
   },
 
   fonts: {
-    regular: 'SpaceGrotesk_400Regular',
-    medium: 'SpaceGrotesk_500Medium',
-    bold: 'SpaceGrotesk_700Bold',
+    light: 'SpaceGroteskLight',
+    regular: 'SpaceGroteskRegular',
+    medium: 'SpaceGroteskMedium',
+    semiBold: 'SpaceGroteskSemiBold',
+    bold: 'SpaceGroteskBold',
+    googleSansMedium: 'GoogleSansMedium',
   },
 
   radii: {
