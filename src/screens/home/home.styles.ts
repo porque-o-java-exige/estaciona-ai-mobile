@@ -117,7 +117,7 @@ export const MainScroll = styled.ScrollView.attrs<{ $bottomInset: number }>(
 )<{ $bottomInset: number }>``;
 
 export const MapWrapper = styled.View`
-  height: 410px;
+height: 480px;
   border-radius: 16px;
   overflow: hidden;
   border-width: 1px;
