@@ -2,6 +2,7 @@ import { api } from '@/lib/axios';
 import {
   GarageDetail,
   GarageNearbyItem,
+  GarageRating,
   NearbyGaragesParams,
   PageResponse,
 } from '../types/garage.types';
@@ -26,6 +27,11 @@ export const garageService = {
 
   async getGarageById(id: string): Promise<GarageDetail> {
     const { data } = await api.get<GarageDetail>(`/garages/${id}`);
+    return data;
+  },
+
+  async getGarageRating(garageId: string): Promise<GarageRating> {
+    const { data } = await api.get<GarageRating>(`/garages/${garageId}/rating`);
     return data;
   },
 };
