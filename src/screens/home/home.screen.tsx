@@ -277,7 +277,10 @@ export default function HomeScreen() {
               onPress={() => {
                 router.push({
                   pathname: '/(main)/garage/[id]',
-                  params: { id: garage.id },
+                  params: {
+                    id: garage.id,
+                    distanceInKm: String(garage.distanceInKm ?? 0),
+                  },
                 });
               }}
             >
