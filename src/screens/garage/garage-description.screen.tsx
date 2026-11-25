@@ -6,6 +6,7 @@ import {
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  ScrollView,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -15,13 +16,13 @@ import { useTheme } from 'styled-components/native';
 import { isAxiosError } from 'axios';
 
 import { Button } from '@/components/ui/button.component';
-import { Input } from '@/components/ui/input.component';
 import {
   useGarageDetails,
   useGarageRating,
 } from '@/features/garages/hooks/use-garage-details';
 import {
   useCreateBooking,
+  useCreateVehicle,
   useMyVehicles,
 } from '@/features/bookings/hooks/use-bookings';
 import { BookingType } from '@/features/bookings/types/booking.types';
@@ -31,11 +32,12 @@ import backArrowIconImg from '@assets/images/back-arrow-icon.png';
 import ratingStarIconImg from '@assets/images/rating-star-icon.png';
 import distanceIconImg from '@assets/images/distance-icon.png';
 import chatIconImg from '@assets/images/chat-icon.png';
-import bookingIconImg from '@assets/images/booking-icon.png';
 import * as S from './garage-description.styles';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=900&q=80';
+
+const WEEK_DAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 
 const FEATURE_LABELS: Record<string, string> = {
   COVERED: 'Coberto',
@@ -59,6 +61,18 @@ function getApiErrorMessage(error: unknown): string {
   return 'Não foi possível concluir a reserva agora. Verifique os dados e tente novamente.';
 }
 
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export default function GarageDescriptionScreen() {
   const { id, distanceInKm } = useLocalSearchParams<{
     id: string;
@@ -72,6 +86,8 @@ export default function GarageDescriptionScreen() {
   const { data: garage, isLoading } = useGarageDetails(id);
   const { data: rating } = useGarageRating(id);
   const { data: vehicles = [] } = useMyVehicles();
+  const { mutateAsync: createVehicle, isPending: isCreatingVehicle } =
+    useCreateVehicle();
   const { mutateAsync: createBooking, isPending: isCreatingBooking } =
     useCreateBooking();
   const { mutateAsync: openBookingChat, isPending: isOpeningChat } =
@@ -82,7 +98,22 @@ export default function GarageDescriptionScreen() {
     useState<BookingType>('HOURLY');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const [durationUnits, setDurationUnits] = useState(2);
+  const [quickModel, setQuickModel] = useState('');
+  const [quickPlate, setQuickPlate] = useState('');
+  const [hourlyUnits, setHourlyUnits] = useState(2);
+
+  // Estado do calendário mensal (para reservas DAILY)
+  const today = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
+  const todayKey = useMemo(() => toDateKey(today), [today]);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(
+    () => new Date(today.getFullYear(), today.getMonth(), 1)
+  );
+  const [selectedDateKeys, setSelectedDateKeys] = useState<string[]>([
+    todayKey,
+  ]);
 
   useEffect(() => {
     if (!garage) return;
@@ -124,6 +155,23 @@ export default function GarageDescriptionScreen() {
       : ['Coberto', 'Câmera de segurança', 'Portão eletrônico'];
   }, [garage]);
 
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekDay = new Date(year, month, 1).getDay();
+    const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const slots: Array<{ key: string; day: number; date: Date } | null> = [];
+    for (let i = 0; i < firstWeekDay; i++) {
+      slots.push(null);
+    }
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const date = new Date(year, month, d);
+      slots.push({ key: toDateKey(date), day: d, date });
+    }
+    return slots;
+  }, [calendarMonth]);
+
   if (isLoading || !garage) {
     return (
       <View
@@ -147,6 +195,12 @@ export default function GarageDescriptionScreen() {
       ? garage.pricePerDay ?? garage.price ?? 0
       : garage.pricePerHour ?? garage.price ?? 0;
 
+  const effectiveUnits =
+    selectedBookingType === 'DAILY'
+      ? Math.max(1, selectedDateKeys.length)
+      : hourlyUnits;
+
+  const totalReservationAmount = displayedPrice * effectiveUnits;
   const priceUnitLabel = selectedBookingType === 'DAILY' ? '/Dia' : '/Hora';
   const averageRating = rating?.averageRating ?? 4.8;
   const totalReviews = rating?.totalReviews ?? 0;
@@ -154,7 +208,20 @@ export default function GarageDescriptionScreen() {
     ? `${Number(distanceInKm).toFixed(1)} km`
     : '0.2 km';
 
-  const ownerInitials = 'PR';
+  const monthLabel = calendarMonth.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  function toggleCalendarDay(key: string) {
+    setSelectedDateKeys((prev) => {
+      if (prev.includes(key)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((item) => item !== key);
+      }
+      return [...prev, key].sort();
+    });
+  }
 
   function handleGalleryScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -162,29 +229,81 @@ export default function GarageDescriptionScreen() {
     setActiveSlide(index);
   }
 
-  async function handleConfirmReservation() {
-    if (!garage) return;
-
-    if (!selectedVehicleId.trim()) {
+  async function handleQuickAddVehicle() {
+    if (!quickModel.trim() || !quickPlate.trim()) {
       Alert.alert(
-        'Veículo obrigatório',
-        'Selecione ou informe o ID de um veículo cadastrado para reservar.'
+        'Dados incompletos',
+        'Informe o modelo e a placa do seu veículo.'
       );
       return;
     }
 
-    const start = new Date(Date.now() + 15 * 60 * 1000);
-    const end = new Date(
-      start.getTime() +
-        (selectedBookingType === 'HOURLY'
-          ? durationUnits * 60 * 60 * 1000
-          : durationUnits * 24 * 60 * 60 * 1000)
-    );
+    try {
+      const created = await createVehicle({
+        model: quickModel.trim(),
+        plate: quickPlate.trim().toUpperCase(),
+      });
+      const createdId = created.vehicleId ?? created.id ?? '';
+      if (createdId) {
+        setSelectedVehicleId(createdId);
+      }
+      setQuickModel('');
+      setQuickPlate('');
+    } catch (error) {
+      Alert.alert('Erro ao cadastrar veículo', getApiErrorMessage(error));
+    }
+  }
+
+  async function handleConfirmReservation() {
+    if (!garage) return;
+
+    if (!selectedVehicleId) {
+      Alert.alert(
+        'Selecione um veículo',
+        'Escolha ou cadastre um veículo acima antes de confirmar a reserva.'
+      );
+      return;
+    }
+
+    let start: Date;
+    let end: Date;
+
+    if (selectedBookingType === 'DAILY') {
+      const sortedKeys = [...selectedDateKeys].sort();
+      const firstDay = parseDateKey(sortedKeys[0]);
+      const lastDay = parseDateKey(sortedKeys[sortedKeys.length - 1]);
+
+      start = new Date(
+        firstDay.getFullYear(),
+        firstDay.getMonth(),
+        firstDay.getDate(),
+        8,
+        0,
+        0
+      );
+      if (start.getTime() <= Date.now()) {
+        start = new Date(Date.now() + 15 * 60 * 1000);
+      }
+      end = new Date(
+        lastDay.getFullYear(),
+        lastDay.getMonth(),
+        lastDay.getDate(),
+        20,
+        0,
+        0
+      );
+      if (end.getTime() <= start.getTime()) {
+        end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      }
+    } else {
+      start = new Date(Date.now() + 15 * 60 * 1000);
+      end = new Date(start.getTime() + hourlyUnits * 60 * 60 * 1000);
+    }
 
     try {
       const booking = await createBooking({
         garageId: garage.garageId,
-        vehicleId: selectedVehicleId.trim(),
+        vehicleId: selectedVehicleId,
         bookingType: selectedBookingType,
         startDateTime: start.toISOString(),
         endDateTime: end.toISOString(),
@@ -193,7 +312,10 @@ export default function GarageDescriptionScreen() {
       await openBookingChat(booking.bookingId);
 
       setIsModalVisible(false);
-      router.replace('/(main)/(tabs)/bookings');
+      router.replace({
+        pathname: '/(main)/(tabs)/payment',
+        params: { bookingId: booking.bookingId },
+      });
     } catch (error) {
       Alert.alert('Não foi possível reservar', getApiErrorMessage(error));
     }
@@ -315,7 +437,7 @@ export default function GarageDescriptionScreen() {
           <S.OwnerCard>
             <S.OwnerLeft>
               <S.OwnerAvatar>
-                <S.OwnerAvatarText>{ownerInitials}</S.OwnerAvatarText>
+                <S.OwnerAvatarText>PR</S.OwnerAvatarText>
               </S.OwnerAvatar>
               <View style={{ flex: 1 }}>
                 <S.OwnerName>Proprietário da vaga</S.OwnerName>
@@ -352,94 +474,190 @@ export default function GarageDescriptionScreen() {
       >
         <S.ModalBackdrop>
           <S.ModalCard $bottomInset={insets.bottom}>
-            <S.ModalTitle>Confirmar reserva</S.ModalTitle>
-            <S.ModalSubtitle>
-              A vaga será adicionada às suas reservas e uma sala de chat será
-              criada com o proprietário.
-            </S.ModalSubtitle>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <S.ModalTitle>Confirmar reserva</S.ModalTitle>
+              <S.ModalSubtitle>
+                Selecione seu veículo e a data para seguir para o pagamento.
+              </S.ModalSubtitle>
 
-            <S.FieldLabel>Veículo da reserva</S.FieldLabel>
+              <S.FieldLabel>Selecione seu veículo</S.FieldLabel>
 
-            {vehicles.length > 0 ? (
-              <S.VehicleChipRow>
-                {vehicles.map((v) => {
-                  const vId = v.vehicleId ?? v.id ?? '';
-                  const isSelected = selectedVehicleId === vId;
-                  return (
-                    <S.VehicleChip
-                      key={vId}
-                      $selected={isSelected}
-                      onPress={() => setSelectedVehicleId(vId)}
+              {vehicles.length > 0 ? (
+                <S.VehicleChipRow>
+                  {vehicles.map((v) => {
+                    const vId = v.vehicleId ?? v.id ?? '';
+                    const isSelected = selectedVehicleId === vId;
+                    return (
+                      <S.VehicleChip
+                        key={vId}
+                        $selected={isSelected}
+                        onPress={() => setSelectedVehicleId(vId)}
+                      >
+                        <S.VehicleChipText $selected={isSelected}>
+                          {v.model} • {v.plate}
+                        </S.VehicleChipText>
+                      </S.VehicleChip>
+                    );
+                  })}
+                </S.VehicleChipRow>
+              ) : (
+                <S.EmptyVehicleCard>
+                  <S.ModalSubtitle style={{ marginBottom: 4 }}>
+                    Nenhum veículo cadastrado. Cadastre agora para reservar:
+                  </S.ModalSubtitle>
+                  <S.QuickVehicleRow>
+                    <S.QuickVehicleInput
+                      placeholder="Modelo (ex: Onix)"
+                      placeholderTextColor="#94A3B8"
+                      value={quickModel}
+                      onChangeText={setQuickModel}
+                    />
+                    <S.QuickVehicleInput
+                      placeholder="Placa (ABC1D23)"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="characters"
+                      value={quickPlate}
+                      onChangeText={setQuickPlate}
+                    />
+                  </S.QuickVehicleRow>
+                  <Button
+                    title="Salvar veículo"
+                    isLoading={isCreatingVehicle}
+                    onPress={() => {
+                      void handleQuickAddVehicle();
+                    }}
+                  />
+                </S.EmptyVehicleCard>
+              )}
+
+              {selectedBookingType === 'DAILY' ? (
+                <>
+                  <S.FieldLabel>
+                    Escolha os dias disponíveis ({selectedDateKeys.length}{' '}
+                    {selectedDateKeys.length === 1
+                      ? 'dia selecionado'
+                      : 'dias selecionados'}
+                    )
+                  </S.FieldLabel>
+
+                  <S.CalendarBox>
+                    <S.CalendarHeaderRow>
+                      <S.CalendarMonthTitle>{monthLabel}</S.CalendarMonthTitle>
+                      <S.CalendarNavGroup>
+                        <S.CalendarNavBtn
+                          onPress={() =>
+                            setCalendarMonth(
+                              (prev) =>
+                                new Date(
+                                  prev.getFullYear(),
+                                  prev.getMonth() - 1,
+                                  1
+                                )
+                            )
+                          }
+                        >
+                          <S.CalendarNavText>{'<'}</S.CalendarNavText>
+                        </S.CalendarNavBtn>
+                        <S.CalendarNavBtn
+                          onPress={() =>
+                            setCalendarMonth(
+                              (prev) =>
+                                new Date(
+                                  prev.getFullYear(),
+                                  prev.getMonth() + 1,
+                                  1
+                                )
+                            )
+                          }
+                        >
+                          <S.CalendarNavText>{'>'}</S.CalendarNavText>
+                        </S.CalendarNavBtn>
+                      </S.CalendarNavGroup>
+                    </S.CalendarHeaderRow>
+
+                    <S.WeekDaysRow>
+                      {WEEK_DAYS.map((dayName) => (
+                        <S.WeekDayText key={dayName}>{dayName}</S.WeekDayText>
+                      ))}
+                    </S.WeekDaysRow>
+
+                    <S.DaysGrid>
+                      {calendarDays.map((slot, idx) => {
+                        if (!slot) {
+                          return <S.DayCellSlot key={`empty-${idx}`} />;
+                        }
+
+                        const isPast = slot.date.getTime() < today.getTime();
+                        const isSelected = selectedDateKeys.includes(slot.key);
+                        const isToday = slot.key === todayKey;
+
+                        return (
+                          <S.DayCellSlot key={slot.key}>
+                            <S.DayCircleBtn
+                              disabled={isPast}
+                              $disabled={isPast}
+                              $selected={isSelected}
+                              $isToday={isToday}
+                              onPress={() => toggleCalendarDay(slot.key)}
+                            >
+                              <S.DayNumberText
+                                $selected={isSelected}
+                                $disabled={isPast}
+                              >
+                                {slot.day}
+                              </S.DayNumberText>
+                            </S.DayCircleBtn>
+                          </S.DayCellSlot>
+                        );
+                      })}
+                    </S.DaysGrid>
+                  </S.CalendarBox>
+                </>
+              ) : (
+                <S.DurationRow>
+                  <S.FieldLabel>Duração (horas)</S.FieldLabel>
+
+                  <S.StepperControls>
+                    <S.StepperBtn
+                      onPress={() =>
+                        setHourlyUnits((prev) => Math.max(1, prev - 1))
+                      }
                     >
-                      <S.VehicleChipText $selected={isSelected}>
-                        {v.model} • {v.plate}
-                      </S.VehicleChipText>
-                    </S.VehicleChip>
-                  );
-                })}
-              </S.VehicleChipRow>
-            ) : (
-              <Input
-                label="ID do Veículo (UUID)"
-                leftIcon={bookingIconImg}
-                placeholder="Cole o vehicleId cadastrado no motorista"
-                autoCapitalize="none"
-                value={selectedVehicleId}
-                onChangeText={setSelectedVehicleId}
-              />
-            )}
+                      <S.StepperBtnText>-</S.StepperBtnText>
+                    </S.StepperBtn>
 
-            <S.DurationRow>
-              <S.FieldLabel>
-                Duração ({selectedBookingType === 'DAILY' ? 'dias' : 'horas'})
-              </S.FieldLabel>
+                    <S.DurationValueText>
+                      {hourlyUnits} {hourlyUnits === 1 ? 'hora' : 'horas'}
+                    </S.DurationValueText>
 
-              <S.StepperControls>
-                <S.StepperBtn
-                  onPress={() =>
-                    setDurationUnits((prev) => Math.max(1, prev - 1))
-                  }
-                >
-                  <S.StepperBtnText>-</S.StepperBtnText>
-                </S.StepperBtn>
+                    <S.StepperBtn
+                      onPress={() => setHourlyUnits((prev) => prev + 1)}
+                    >
+                      <S.StepperBtnText>+</S.StepperBtnText>
+                    </S.StepperBtn>
+                  </S.StepperControls>
+                </S.DurationRow>
+              )}
 
-                <S.DurationValueText>
-                  {durationUnits}{' '}
-                  {selectedBookingType === 'DAILY'
-                    ? durationUnits === 1
-                      ? 'dia'
-                      : 'dias'
-                    : durationUnits === 1
-                      ? 'hora'
-                      : 'horas'}
-                </S.DurationValueText>
-
-                <S.StepperBtn
-                  onPress={() => setDurationUnits((prev) => prev + 1)}
-                >
-                  <S.StepperBtnText>+</S.StepperBtnText>
-                </S.StepperBtn>
-              </S.StepperControls>
-            </S.DurationRow>
-
-            <S.ModalActionsRow>
-              <View style={{ flex: 1 }}>
-                <Button
-                  title="Cancelar"
-                  variant="outline"
-                  onPress={() => setIsModalVisible(false)}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  title={`Reservar (R$${displayedPrice * durationUnits})`}
-                  isLoading={isCreatingBooking || isOpeningChat}
-                  onPress={() => {
-                    void handleConfirmReservation();
-                  }}
-                />
-              </View>
-            </S.ModalActionsRow>
+              <S.ModalActionsRow>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title="Cancelar"
+                    variant="outline"
+                    onPress={() => setIsModalVisible(false)}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title={`Reservar (R$${totalReservationAmount})`}
+                    isLoading={isCreatingBooking || isOpeningChat}
+                    onPress={() => {
+                      void handleConfirmReservation();
+                    }}
+                  />
+                </View>
+              </S.ModalActionsRow>
+            </ScrollView>
           </S.ModalCard>
         </S.ModalBackdrop>
       </Modal>
