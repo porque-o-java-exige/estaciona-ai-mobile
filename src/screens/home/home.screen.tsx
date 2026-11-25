@@ -25,6 +25,7 @@ import {
   Coordinates,
   GarageSearchFilters,
 } from '@/features/garages/types/garage.types';
+import { useUserNotifications } from '@/features/notifications/hooks/use-notifications';
 import { useAuthStore } from '@/stores/use-auth-store';
 
 import notificationsIconImg from '@assets/images/notifications-icon.png';
@@ -85,8 +86,10 @@ export default function HomeScreen() {
 
   const { data: rawGarages = [], isLoading: isLoadingGarages } =
     useNearbyGarages(searchCenter, filters.maxRadiusKm);
+  const { data: notifications = [] } = useUserNotifications();
 
   const firstName = user?.name?.trim().split(' ')[0] || 'Motorista';
+  const hasUnreadNotifications = notifications.some((n) => !n.isRead);
 
   const hasActiveCustomFilter =
     filters.maxPricePerHour !== null || filters.maxRadiusKm !== 2;
@@ -312,10 +315,11 @@ export default function HomeScreen() {
         </S.GreetingWrapper>
 
         <S.IconSquareButton
-          onPress={() => router.push('/coming-soon')}
+          onPress={() => router.push('/(main)/notifications')}
           activeOpacity={0.75}
         >
           <S.HeaderIcon source={notificationsIconImg} resizeMode="contain" />
+          {hasUnreadNotifications ? <S.FilterBadgeDot /> : null}
         </S.IconSquareButton>
       </S.HeaderRow>
 
@@ -386,6 +390,8 @@ export default function HomeScreen() {
                   latitude: garage.latitude,
                   longitude: garage.longitude,
                 }}
+                anchor={{ x: 0.5, y: 1 }}
+                tracksViewChanges={false}
                 onPress={() =>
                   navigateToGarage(garage.id, garage.distanceInKm ?? 0)
                 }
@@ -479,7 +485,7 @@ export default function HomeScreen() {
                         />
                         <S.GarageMetaBold>{ratingLabel}</S.GarageMetaBold>
                         <S.GarageMetaMuted>
-                          • {distanceLabel}
+                          - {distanceLabel}
                           {garage.description ? ` • ${garage.description}` : ''}
                         </S.GarageMetaMuted>
                       </S.GarageMetaRow>

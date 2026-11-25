@@ -317,6 +317,7 @@ export const ModalCard = styled.View<{ $bottomInset: number }>`
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   padding: 22px 20px ${({ $bottomInset }) => Math.max($bottomInset, 20)}px;
+  max-height: 88%;
 `;
 
 export const ModalTitle = styled.Text`
@@ -330,14 +331,14 @@ export const ModalSubtitle = styled.Text`
   font-family: ${({ theme }) => theme.fonts.regular};
   font-size: 13px;
   color: ${({ theme }) => theme.colors.black[700]};
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 `;
 
 export const FieldLabel = styled.Text`
-  font-family: ${({ theme }) => theme.fonts.medium};
+  font-family: ${({ theme }) => theme.fonts.bold};
   font-size: 13px;
   color: ${({ theme }) => theme.colors.black[900]};
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 `;
 
 export const VehicleChipRow = styled.View`
@@ -348,11 +349,11 @@ export const VehicleChipRow = styled.View`
 `;
 
 export const VehicleChip = styled.TouchableOpacity<{ $selected: boolean }>`
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 8px 14px;
+  border-radius: 12px;
   border-width: 1px;
   border-color: ${({ $selected, theme }) =>
-    $selected ? theme.colors.blue[1000] : theme.colors.white[300]};
+    $selected ? theme.colors.blue[1000] : '#CBD5E1'};
   background-color: ${({ $selected }) => ($selected ? '#DBEAFE' : '#FFFFFF')};
 `;
 
@@ -361,6 +362,133 @@ export const VehicleChipText = styled.Text<{ $selected: boolean }>`
   font-size: 12px;
   color: ${({ $selected, theme }) =>
     $selected ? theme.colors.blue[1000] : theme.colors.black[900]};
+`;
+
+export const EmptyVehicleCard = styled.View`
+  background-color: #f8fafc;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: #cbd5e1;
+  padding: 12px;
+  margin-bottom: 14px;
+  gap: 8px;
+`;
+
+export const QuickVehicleRow = styled.View`
+  flex-direction: row;
+  gap: 8px;
+`;
+
+export const QuickVehicleInput = styled.TextInput`
+  flex: 1;
+  height: 40px;
+  background-color: #ffffff;
+  border-width: 1px;
+  border-color: #cbd5e1;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-family: ${({ theme }) => theme.fonts.regular};
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.black[1100]};
+`;
+
+/* Calendário mensal para Diária */
+export const CalendarBox = styled.View`
+  background-color: #ffffff;
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: #bfdbfe;
+  padding: 14px;
+  margin-bottom: 16px;
+`;
+
+export const CalendarHeaderRow = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+`;
+
+export const CalendarMonthTitle = styled.Text`
+  font-family: ${({ theme }) => theme.fonts.bold};
+  font-size: 16px;
+  color: ${({ theme }) => theme.colors.black[1100]};
+  text-transform: capitalize;
+`;
+
+export const CalendarNavGroup = styled.View`
+  flex-direction: row;
+  gap: 8px;
+`;
+
+export const CalendarNavBtn = styled.TouchableOpacity`
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  border-width: 1px;
+  border-color: #93c5fd;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const CalendarNavText = styled.Text`
+  font-family: ${({ theme }) => theme.fonts.bold};
+  font-size: 14px;
+  color: ${({ theme }) => theme.colors.blue[1000]};
+`;
+
+export const WeekDaysRow = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 8px;
+`;
+
+export const WeekDayText = styled.Text`
+  width: 14.28%;
+  text-align: center;
+  font-family: ${({ theme }) => theme.fonts.medium};
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.black[700]};
+`;
+
+export const DaysGrid = styled.View`
+  flex-direction: row;
+  flex-wrap: wrap;
+`;
+
+export const DayCellSlot = styled.View`
+  width: 14.28%;
+  align-items: center;
+  margin-bottom: 6px;
+`;
+
+export const DayCircleBtn = styled.TouchableOpacity<{
+  $selected: boolean;
+  $isToday: boolean;
+  $disabled: boolean;
+}>`
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  align-items: center;
+  justify-content: center;
+  background-color: ${({ $selected, theme }) =>
+    $selected ? theme.colors.blue[1000] : 'transparent'};
+  border-width: ${({ $isToday, $selected }) =>
+    $isToday && !$selected ? '1.5px' : '0px'};
+  border-color: #f59e0b;
+  opacity: ${({ $disabled }) => ($disabled ? 0.3 : 1)};
+`;
+
+export const DayNumberText = styled.Text<{
+  $selected: boolean;
+  $disabled: boolean;
+}>`
+  font-family: ${({ theme, $selected }) =>
+    $selected ? theme.fonts.bold : theme.fonts.medium};
+  font-size: 13px;
+  color: ${({ $selected, theme }) =>
+    $selected ? '#FFFFFF' : theme.colors.black[1100]};
 `;
 
 export const DurationRow = styled.View`

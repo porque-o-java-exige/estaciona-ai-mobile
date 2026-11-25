@@ -10,26 +10,30 @@ export const HeaderRow = styled.View`
   flex-direction: row;
   align-items: center;
   padding: 0 20px 14px;
-  gap: 14px;
+  gap: 12px;
 `;
 
 export const BackButton = styled.TouchableOpacity`
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   align-items: center;
   justify-content: center;
 `;
 
 export const BackArrowIcon = styled.Image`
-  width: 18px;
-  height: 18px;
+  width: 36px;
+  height: 36px;
   tint-color: ${({ theme }) => theme.colors.blue[1000]};
 `;
 
 export const HeaderTitle = styled.Text`
   font-family: ${({ theme }) => theme.fonts.bold};
   font-size: 22px;
+  line-height: 28px;
   color: ${({ theme }) => theme.colors.black[1100]};
+  include-font-padding: false;
+  text-align-vertical: center;
 `;
 
 export const HeaderDivider = styled.View`
@@ -43,21 +47,27 @@ export const FilterTabsScroll = styled.ScrollView.attrs({
   showsHorizontalScrollIndicator: false,
   contentContainerStyle: {
     paddingHorizontal: 20,
-    gap: 8,
+    gap: 10,
+    alignItems: 'center',
   },
 })`
   flex-grow: 0;
-  margin-bottom: 16px;
+  min-height: 44px;
+  max-height: 44px;
+  margin-bottom: 24px;
 `;
 
 export const FilterTabPill = styled.TouchableOpacity<{ $active: boolean }>`
-  padding: 7px 16px;
+  height: 36px;
+  padding: 0 18px;
   border-radius: 999px;
-  border-width: 1px;
+  border-width: 1.5px;
   border-color: ${({ $active, theme }) =>
     $active ? theme.colors.blue[1000] : '#93C5FD'};
   background-color: ${({ $active, theme }) =>
     $active ? theme.colors.blue[1000] : '#FFFFFF'};
+  align-items: center;
+  justify-content: center;
 `;
 
 export const FilterTabText = styled.Text<{ $active: boolean }>`
@@ -65,6 +75,8 @@ export const FilterTabText = styled.Text<{ $active: boolean }>`
   font-size: 13px;
   color: ${({ $active, theme }) =>
     $active ? '#FFFFFF' : theme.colors.blue[800]};
+  include-font-padding: false;
+  text-align: center;
 `;
 
 export const BookingCard = styled.View`
@@ -84,7 +96,7 @@ export const CardTopSection = styled.View`
   background-color: #eaf2ff;
   padding: 14px 16px 12px;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
 `;
@@ -100,26 +112,35 @@ export const GarageTitleText = styled.Text.attrs({
   font-size: 15px;
   color: ${({ theme }) => theme.colors.black[1100]};
   margin-bottom: 3px;
+  include-font-padding: false;
 `;
 
 export const ScheduleText = styled.Text`
   font-family: ${({ theme }) => theme.fonts.regular};
   font-size: 12px;
   color: ${({ theme }) => theme.colors.black[700]};
+  include-font-padding: false;
 `;
 
 export const StatusBadge = styled.View<{ $variant: 'active' | 'soft' }>`
-  padding: 4px 14px;
+  height: 26px;
+  padding: 0 14px;
   border-radius: 999px;
   background-color: ${({ $variant, theme }) =>
     $variant === 'active' ? theme.colors.blue[1000] : '#DBEAFE'};
+  align-items: center;
+  justify-content: center;
 `;
 
 export const StatusBadgeText = styled.Text<{ $variant: 'active' | 'soft' }>`
   font-family: ${({ theme }) => theme.fonts.medium};
   font-size: 11px;
+  line-height: 14px;
   color: ${({ $variant, theme }) =>
     $variant === 'active' ? '#FFFFFF' : theme.colors.blue[800]};
+  include-font-padding: false;
+  text-align: center;
+  text-align-vertical: center;
 `;
 
 export const CardBottomSection = styled.View`
@@ -167,6 +188,7 @@ export const MutedCaption = styled.Text`
   font-size: 11px;
   color: ${({ theme }) => theme.colors.black[700]};
   margin-bottom: 2px;
+  include-font-padding: false;
 `;
 
 export const SpotDetailValue = styled.Text.attrs({
@@ -175,6 +197,7 @@ export const SpotDetailValue = styled.Text.attrs({
   font-family: ${({ theme }) => theme.fonts.bold};
   font-size: 14px;
   color: ${({ theme }) => theme.colors.black[1100]};
+  include-font-padding: false;
 `;
 
 export const PriceColumn = styled.View`
@@ -185,6 +208,7 @@ export const TotalAmountValue = styled.Text`
   font-family: ${({ theme }) => theme.fonts.bold};
   font-size: 15px;
   color: ${({ theme }) => theme.colors.blue[1000]};
+  include-font-padding: false;
 `;
 
 export const CardActionsRow = styled.View`
@@ -199,11 +223,12 @@ export const CardActionsRow = styled.View`
 
 export const ChatActionBtn = styled.TouchableOpacity`
   flex: 1;
+  height: 36px;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 0 12px;
   border-radius: 8px;
   background-color: #dbeafe;
 `;
@@ -217,11 +242,16 @@ export const ChatActionIcon = styled.Image`
 export const ChatActionText = styled.Text`
   font-family: ${({ theme }) => theme.fonts.medium};
   font-size: 12px;
+  line-height: 16px;
   color: ${({ theme }) => theme.colors.blue[1000]};
+  include-font-padding: false;
+  text-align: center;
+  text-align-vertical: center;
 `;
 
 export const CancelActionBtn = styled.TouchableOpacity`
-  padding: 8px 14px;
+  height: 36px;
+  padding: 0 14px;
   border-radius: 8px;
   border-width: 1px;
   border-color: #fca5a5;
@@ -233,7 +263,11 @@ export const CancelActionBtn = styled.TouchableOpacity`
 export const CancelActionText = styled.Text`
   font-family: ${({ theme }) => theme.fonts.medium};
   font-size: 12px;
+  line-height: 16px;
   color: #dc2626;
+  include-font-padding: false;
+  text-align: center;
+  text-align-vertical: center;
 `;
 
 export const EmptyBox = styled.View`
@@ -243,6 +277,7 @@ export const EmptyBox = styled.View`
   border-color: #dbeafe;
   padding: 24px 18px;
   align-items: center;
+  justify-content: center;
   margin-top: 12px;
 `;
 
@@ -251,4 +286,5 @@ export const EmptyText = styled.Text`
   font-size: 14px;
   color: ${({ theme }) => theme.colors.black[700]};
   text-align: center;
+  include-font-padding: false;
 `;

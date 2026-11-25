@@ -5,6 +5,13 @@ import {
   DriverVehicle,
 } from '../types/booking.types';
 
+export interface CreateVehicleRequest {
+  model: string;
+  plate: string;
+  brand?: string;
+  color?: string;
+}
+
 export const bookingService = {
   async getMyBookings(): Promise<BookingResponse[]> {
     const { data } = await api.get<BookingResponse[]>('/bookings');
@@ -30,5 +37,10 @@ export const bookingService = {
     } catch {
       return [];
     }
+  },
+
+  async createVehicle(payload: CreateVehicleRequest): Promise<DriverVehicle> {
+    const { data } = await api.post<DriverVehicle>('/vehicles', payload);
+    return data;
   },
 };
