@@ -6,7 +6,10 @@ import {
 } from '@tanstack/react-query';
 import { garageService } from '@/features/garages/services/garage.service';
 import { GarageDetail } from '@/features/garages/types/garage.types';
-import { bookingService } from '../services/booking.service';
+import {
+  bookingService,
+  CreateVehicleRequest,
+} from '../services/booking.service';
 import {
   BookingResponse,
   CreateBookingRequest,
@@ -63,6 +66,17 @@ export function useMyVehicles() {
   return useQuery<DriverVehicle[]>({
     queryKey: ['my-vehicles'],
     queryFn: bookingService.getMyVehicles,
+  });
+}
+
+export function useCreateVehicle() {
+  const queryClient = useQueryClient();
+
+  return useMutation<DriverVehicle, unknown, CreateVehicleRequest>({
+    mutationFn: bookingService.createVehicle,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['my-vehicles'] });
+    },
   });
 }
 

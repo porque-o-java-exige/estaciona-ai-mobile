@@ -1,9 +1,1 @@
-import { Text, View } from 'react-native';
-
-export default function PaymentTabPlaceholder() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Pagamento</Text>
-    </View>
-  );
-}
+export { default } from '@/screens/payment/payment.screen';

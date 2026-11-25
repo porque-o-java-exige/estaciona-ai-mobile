@@ -3,13 +3,19 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   RefreshControl,
+  Text,
+  TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'styled-components/native';
+import { isAxiosError } from 'axios';
 
+import { Button } from '@/components/ui/button.component';
 import {
   EnrichedBooking,
   useCancelBooking,
@@ -17,6 +23,11 @@ import {
 } from '@/features/bookings/hooks/use-bookings';
 import { BookingStatus } from '@/features/bookings/types/booking.types';
 import { useOpenBookingChat } from '@/features/chat/hooks/use-chat';
+import {
+  useCreateDriverReview,
+  useCreateGarageReview,
+} from '@/features/reviews/hooks/use-reviews';
+import { useAuthStore } from '@/stores/use-auth-store';
 
 import backArrowIconImg from '@assets/images/back-arrow-icon.png';
 import carBookingIconImg from '@assets/images/car-booking-icon.png';
@@ -43,7 +54,6 @@ function getStatusPresentation(status: BookingStatus): StatusPresentation {
   switch (status) {
     case 'CONFIRMED':
     case 'ACTIVE':
-      // Reserva paga e pronta para estacionar
       return {
         category: 'ACTIVE',
         badgeLabel: 'Ativo',
@@ -53,7 +63,6 @@ function getStatusPresentation(status: BookingStatus): StatusPresentation {
 
     case 'COMPLETED':
     case 'CANCELLED':
-      // Reservas já feitas / finalizadas
       return {
         category: 'COMPLETED',
         badgeLabel: status === 'CANCELLED' ? 'Cancelado' : 'Concluído',
@@ -64,7 +73,6 @@ function getStatusPresentation(status: BookingStatus): StatusPresentation {
     case 'PENDING':
     case 'IN_PROGRESS':
     default:
-      // Reservas aguardando pagamento
       return {
         category: 'IN_PROGRESS',
         badgeLabel: 'Em andamento',
@@ -96,8 +104,13 @@ export default function BookingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const user = useAuthStore((state) => state.user);
 
   const [selectedTab, setSelectedTab] = useState<BookingFilterTab>('ALL');
+  const [reviewTargetBooking, setReviewTargetBooking] =
+    useState<EnrichedBooking | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const {
     data: bookings = [],
@@ -108,6 +121,10 @@ export default function BookingsScreen() {
   const { mutateAsync: cancelBooking, isPending: isCancelling } =
     useCancelBooking();
   const { mutateAsync: openBookingChat } = useOpenBookingChat();
+  const { mutateAsync: createGarageReview, isPending: isSavingGarageReview } =
+    useCreateGarageReview();
+  const { mutateAsync: createDriverReview, isPending: isSavingDriverReview } =
+    useCreateDriverReview();
 
   const filteredBookings = useMemo(() => {
     const sorted = [...bookings].sort(
@@ -157,6 +174,44 @@ export default function BookingsScreen() {
     );
   }
 
+  async function handleSubmitReview() {
+    if (!reviewTargetBooking) return;
+    const isDriver = reviewTargetBooking.driverId === user?.id;
+
+    try {
+      if (isDriver) {
+        await createGarageReview({
+          bookingId: reviewTargetBooking.bookingId,
+          rating: reviewRating,
+          comment:
+            reviewComment.trim() ||
+            'Excelente vaga, muito segura e fácil de estacionar.',
+        });
+      } else {
+        await createDriverReview({
+          bookingId: reviewTargetBooking.bookingId,
+          rating: reviewRating,
+          comment:
+            reviewComment.trim() ||
+            'Motorista pontual e cuidadoso ao estacionar.',
+        });
+      }
+
+      setReviewTargetBooking(null);
+      setReviewComment('');
+      setReviewRating(5);
+      Alert.alert('Avaliação enviada', 'Obrigado pelo seu feedback!');
+    } catch (error) {
+      const msg = isAxiosError(error)
+        ? (error.response?.data as { message?: string } | undefined)?.message
+        : undefined;
+      Alert.alert(
+        'Não foi possível avaliar',
+        msg || 'Verifique se esta reserva já foi avaliada.'
+      );
+    }
+  }
+
   function renderBookingCard({ item }: { item: EnrichedBooking }) {
     const presentation = getStatusPresentation(item.status);
     const title =
@@ -171,10 +226,14 @@ export default function BookingsScreen() {
 
     const spotSubtitle =
       item.garage?.address ||
-      (item.bookingType === 'DAILY' ? 'Diária · Vaga coberta' : 'Por hora · Vaga reservada');
+      (item.bookingType === 'DAILY'
+        ? 'Diária · Vaga coberta'
+        : 'Por hora · Vaga reservada');
 
-    const canCancel =
+    const isPendingPayment =
       item.status === 'PENDING' || item.status === 'IN_PROGRESS';
+    const isCompleted = item.status === 'COMPLETED';
+    const isDriver = item.driverId === user?.id;
 
     return (
       <S.BookingCard>
@@ -214,7 +273,7 @@ export default function BookingsScreen() {
           </S.CardDetailsRow>
 
           <S.CardActionsRow>
-            {canCancel ? (
+            {isPendingPayment ? (
               <S.CancelActionBtn
                 disabled={isCancelling}
                 onPress={() => confirmCancelBooking(item.bookingId)}
@@ -223,13 +282,38 @@ export default function BookingsScreen() {
               </S.CancelActionBtn>
             ) : null}
 
+            {isPendingPayment ? (
+              <S.ChatActionBtn
+                onPress={() =>
+                  router.push({
+                    pathname: '/(main)/(tabs)/payment',
+                    params: { bookingId: item.bookingId },
+                  })
+                }
+              >
+                <S.ChatActionText>Pagar agora</S.ChatActionText>
+              </S.ChatActionBtn>
+            ) : isCompleted ? (
+              <S.ChatActionBtn
+                onPress={() => {
+                  setReviewRating(5);
+                  setReviewComment('');
+                  setReviewTargetBooking(item);
+                }}
+              >
+                <S.ChatActionText>
+                  {isDriver ? 'Avaliar garagem' : 'Avaliar motorista'}
+                </S.ChatActionText>
+              </S.ChatActionBtn>
+            ) : null}
+
             <S.ChatActionBtn
               onPress={() => {
                 void handleOpenChat(item.bookingId);
               }}
             >
               <S.ChatActionIcon source={chatIconImg} resizeMode="contain" />
-              <S.ChatActionText>Conversar com proprietário</S.ChatActionText>
+              <S.ChatActionText>Chat</S.ChatActionText>
             </S.ChatActionBtn>
           </S.CardActionsRow>
         </S.CardBottomSection>
@@ -303,6 +387,118 @@ export default function BookingsScreen() {
           }
         />
       )}
+
+      <Modal
+        visible={Boolean(reviewTargetBooking)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReviewTargetBooking(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(15, 23, 42, 0.52)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 22,
+              paddingBottom: Math.max(insets.bottom, 22),
+              gap: 14,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: theme.fonts.bold,
+                fontSize: 18,
+                color: theme.colors.black[1100],
+              }}
+            >
+              {reviewTargetBooking?.driverId === user?.id
+                ? 'Avaliar Garagem'
+                : 'Avaliar Motorista'}
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setReviewRating(star)}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 21,
+                    borderWidth: 1,
+                    borderColor:
+                      star <= reviewRating
+                        ? theme.colors.blue[1000]
+                        : '#CBD5E1',
+                    backgroundColor:
+                      star <= reviewRating ? '#DBEAFE' : '#FFFFFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: theme.fonts.bold,
+                      fontSize: 16,
+                      color:
+                        star <= reviewRating
+                          ? theme.colors.blue[1000]
+                          : '#94A3B8',
+                    }}
+                  >
+                    ★
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              placeholder="Escreva um comentário sobre sua experiência..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              style={{
+                minHeight: 84,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#CBD5E1',
+                padding: 12,
+                textAlignVertical: 'top',
+                fontFamily: theme.fonts.regular,
+                fontSize: 14,
+                color: theme.colors.black[1100],
+              }}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Fechar"
+                  variant="outline"
+                  onPress={() => setReviewTargetBooking(null)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Enviar avaliação"
+                  isLoading={isSavingGarageReview || isSavingDriverReview}
+                  onPress={() => {
+                    void handleSubmitReview();
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </S.Container>
   );
 }
