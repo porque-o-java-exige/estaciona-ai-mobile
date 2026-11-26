@@ -1,110 +1,233 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'styled-components/native';
+import { useQueryClient } from '@tanstack/react-query';
 
+import { env } from '@/config/env';
 import {
   useOpenBookingChat,
   useRoomMessages,
   useSendChatMessage,
 } from '@/features/chat/hooks/use-chat';
+import { ChatMessageResponse } from '@/features/chat/types/chat.types';
+import { useUserProfile } from '@/features/users/hooks/use-users';
 import { useAuthStore } from '@/stores/use-auth-store';
 
+import backArrowIconImg from '@assets/images/back-arrow-icon.png';
+import sendMessageIconImg from '@assets/images/send-message-icon.png';
+import * as S from './chat-room-detail.styles';
+
+const DEFAULT_USER_AVATAR =
+  'https://estacionaaistorage.blob.core.windows.net/estaciona-ai-images/users/user.png';
+
 export default function ChatRoomDetailScreen() {
-  const { bookingId, roomId: initialRoomId } = useLocalSearchParams<{
+  const {
+    bookingId,
+    roomId: paramRoomId,
+    otherUserId: paramOtherUserId,
+  } = useLocalSearchParams<{
     bookingId: string;
     roomId?: string;
+    otherUserId?: string;
   }>();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
+
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const token = useAuthStore((state) => state.token);
 
   const [resolvedRoomId, setResolvedRoomId] = useState<string | undefined>(
-    initialRoomId
+    paramRoomId
   );
-  const [text, setText] = useState('');
+  const [resolvedOtherUserId, setResolvedOtherUserId] = useState<
+    string | undefined
+  >(paramOtherUserId);
+  const [draftText, setDraftText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  const flatListRef = useRef<FlatList<ChatMessageResponse> | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const { mutateAsync: ensureRoom } = useOpenBookingChat();
-  const { data: messages = [], isLoading } = useRoomMessages(resolvedRoomId);
-  const { mutateAsync: sendMessage, isPending: isSending } = useSendChatMessage(
+  const { data: messages = [], isLoading: isLoadingMessages } =
+    useRoomMessages(resolvedRoomId);
+  const { data: peerProfile } = useUserProfile(resolvedOtherUserId);
+  const { mutateAsync: sendMessageRest } = useSendChatMessage(
     resolvedRoomId ?? ''
   );
 
   useEffect(() => {
-    if (!resolvedRoomId && bookingId) {
-      void ensureRoom(bookingId).then((room) => setResolvedRoomId(room.roomId));
+    let mounted = true;
+
+    async function loadRoom() {
+      if (resolvedRoomId && resolvedOtherUserId) return;
+      if (!bookingId) return;
+
+      try {
+        const room = await ensureRoom(bookingId);
+        if (!mounted) return;
+        setResolvedRoomId(room.roomId);
+        const peerId =
+          room.driverId === currentUserId ? room.ownerId : room.driverId;
+        setResolvedOtherUserId(peerId);
+      } catch {
+        Alert.alert('Erro', 'Não foi possível carregar esta sala de chat.');
+      }
     }
-  }, [resolvedRoomId, bookingId, ensureRoom]);
+
+    void loadRoom();
+    return () => {
+      mounted = false;
+    };
+  }, [
+    bookingId,
+    resolvedRoomId,
+    resolvedOtherUserId,
+    currentUserId,
+    ensureRoom,
+  ]);
+
+  useEffect(() => {
+    if (!resolvedRoomId || !token || !env.apiUrl) return;
+
+    const wsBase = env.apiUrl
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/\/$/, '');
+
+    const ws = new WebSocket(`${wsBase}/ws`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      const connectFrame = `CONNECT\nAuthorization:Bearer ${token}\naccept-version:1.2\nheart-beat:10000,10000\n\n\0`;
+      ws.send(connectFrame);
+    };
+
+    ws.onmessage = (event) => {
+      const raw = String(event.data || '');
+
+      if (raw.startsWith('CONNECTED')) {
+        const subFrame = `SUBSCRIBE\nid:sub-${resolvedRoomId}\ndestination:/topic/room.${resolvedRoomId}\n\n\0`;
+        ws.send(subFrame);
+        return;
+      }
+
+      if (raw.startsWith('MESSAGE')) {
+        const bodyStart = raw.indexOf('\n\n');
+        if (bodyStart !== -1) {
+          const jsonText = raw.slice(bodyStart + 2).replace(/\0/g, '').trim();
+          try {
+            const incoming = JSON.parse(jsonText) as ChatMessageResponse;
+            if (incoming?.messageId) {
+              queryClient.setQueryData<ChatMessageResponse[]>(
+                ['chat-messages', resolvedRoomId],
+                (prev = []) => {
+                  if (prev.some((m) => m.messageId === incoming.messageId)) {
+                    return prev;
+                  }
+                  return [...prev, incoming];
+                }
+              );
+              void queryClient.invalidateQueries({ queryKey: ['chat-rooms'] });
+            }
+          } catch {
+            // Ignora frames que não sejam JSON
+          }
+        }
+      }
+    };
+
+    return () => {
+      try {
+        ws.close();
+      } catch {
+        // Ignora erro ao fechar socket
+      }
+      wsRef.current = null;
+    };
+  }, [resolvedRoomId, token, queryClient]);
 
   async function handleSend() {
-    const trimmed = text.trim();
-    if (!trimmed || !resolvedRoomId) return;
+    const content = draftText.trim();
+    if (!content || !resolvedRoomId || isSending) return;
+
+    setDraftText('');
+    setIsSending(true);
 
     try {
-      setText('');
-      await sendMessage(trimmed);
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const payload = JSON.stringify({
+          roomId: resolvedRoomId,
+          content,
+        });
+        const sendFrame = `SEND\ndestination:/app/chat.send\ncontent-type:application/json\n\n${payload}\0`;
+        ws.send(sendFrame);
+
+        const optimistic: ChatMessageResponse = {
+          messageId: `temp-${Date.now()}`,
+          roomId: resolvedRoomId,
+          senderId: currentUserId || '',
+          content,
+          createdAt: new Date().toISOString(),
+        };
+        queryClient.setQueryData<ChatMessageResponse[]>(
+          ['chat-messages', resolvedRoomId],
+          (prev = []) => [...prev, optimistic]
+        );
+        void queryClient.invalidateQueries({
+          queryKey: ['chat-messages', resolvedRoomId],
+        });
+      } else {
+        await sendMessageRest(content);
+      }
     } catch {
+      setDraftText(content);
       Alert.alert(
-        'Erro ao enviar',
+        'Falha ao enviar',
         'Não foi possível enviar a mensagem agora.'
       );
+    } finally {
+      setIsSending(false);
     }
   }
 
+  const peerName = peerProfile?.name || 'Conversa';
+  const peerAvatarUri = peerProfile?.photoUrl || DEFAULT_USER_AVATAR;
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.white[1100] }}
+    <S.Container
+      $topInset={insets.top}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View
-        style={{
-          paddingTop: insets.top + 12,
-          paddingBottom: 12,
-          paddingHorizontal: 20,
-          backgroundColor: '#FFFFFF',
-          borderBottomWidth: 1,
-          borderBottomColor: '#E2E8F0',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text
-            style={{
-              fontFamily: theme.fonts.medium,
-              fontSize: 15,
-              color: theme.colors.blue[1000],
-            }}
-          >
-            Voltar
-          </Text>
-        </TouchableOpacity>
-        <Text
-          style={{
-            fontFamily: theme.fonts.bold,
-            fontSize: 16,
-            color: theme.colors.black[1100],
-          }}
-        >
-          Chat da Reserva #{bookingId?.slice(0, 8)}
-        </Text>
-        <View style={{ width: 42 }} />
-      </View>
+      <S.HeaderRow>
+        <S.BackButton onPress={() => router.back()} activeOpacity={0.75}>
+          <S.BackArrowIcon source={backArrowIconImg} resizeMode="contain" />
+        </S.BackButton>
 
-      {isLoading || !resolvedRoomId ? (
+        <S.PeerAvatarWrapper>
+          <S.PeerAvatar source={{ uri: peerAvatarUri }} resizeMode="cover" />
+          <S.PeerOnlineDot />
+        </S.PeerAvatarWrapper>
+
+        <S.PeerName>{peerName}</S.PeerName>
+      </S.HeaderRow>
+
+      <S.HeaderDivider />
+
+      {isLoadingMessages && !resolvedRoomId ? (
         <View
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
         >
@@ -112,109 +235,72 @@ export default function ChatRoomDetailScreen() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.messageId}
-          contentContainerStyle={{ padding: 16, gap: 10 }}
-          ListEmptyComponent={
-            <Text
-              style={{
-                textAlign: 'center',
-                fontFamily: theme.fonts.regular,
-                fontSize: 13,
-                color: theme.colors.black[700],
-                marginTop: 24,
-              }}
-            >
-              Sala criada! Envie a primeira mensagem para iniciar a conversa.
-            </Text>
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 18,
+            paddingBottom: 16,
+          }}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
           }
-          renderItem={({ item }) => {
-            const isMine = item.senderId === user?.id;
-            return (
-              <View
+          ListEmptyComponent={
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <Text
                 style={{
-                  alignSelf: isMine ? 'flex-end' : 'flex-start',
-                  backgroundColor: isMine
-                    ? theme.colors.blue[1000]
-                    : '#FFFFFF',
-                  borderWidth: isMine ? 0 : 1,
-                  borderColor: '#E2E8F0',
-                  borderRadius: 14,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  maxWidth: '80%',
+                  fontFamily: theme.fonts.regular,
+                  fontSize: 13,
+                  color: theme.colors.black[700],
+                  textAlign: 'center',
+                  includeFontPadding: false,
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: theme.fonts.regular,
-                    fontSize: 14,
-                    color: isMine ? '#FFFFFF' : theme.colors.black[1100],
-                  }}
-                >
-                  {item.content}
-                </Text>
-              </View>
+                Nenhuma mensagem ainda. Envie uma mensagem abaixo para
+                combinar os detalhes da vaga.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const isMine = item.senderId === currentUserId;
+            return (
+              <S.BubbleRow $isMine={isMine}>
+                <S.MessageBubble $isMine={isMine}>
+                  <S.MessageText>{item.content}</S.MessageText>
+                </S.MessageBubble>
+              </S.BubbleRow>
             );
           }}
         />
       )}
 
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-          paddingHorizontal: 16,
-          paddingTop: 10,
-          paddingBottom: Math.max(insets.bottom, 14),
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E2E8F0',
-        }}
-      >
-        <TextInput
-          placeholder="Digite sua mensagem..."
-          placeholderTextColor="#94A3B8"
-          value={text}
-          onChangeText={setText}
-          style={{
-            flex: 1,
-            height: 44,
-            borderRadius: 22,
-            borderWidth: 1,
-            borderColor: '#CBD5E1',
-            paddingHorizontal: 16,
-            fontFamily: theme.fonts.regular,
-            fontSize: 14,
-            color: theme.colors.black[1100],
-          }}
-        />
-        <TouchableOpacity
-          disabled={isSending || !text.trim()}
-          onPress={() => {
-            void handleSend();
-          }}
-          style={{
-            height: 44,
-            paddingHorizontal: 18,
-            borderRadius: 22,
-            backgroundColor: theme.colors.blue[1000],
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: theme.fonts.bold,
-              fontSize: 14,
-              color: '#FFFFFF',
+      <S.InputBarWrapper $bottomInset={insets.bottom}>
+        <S.InputPill>
+          <S.MessageInput
+            placeholder="digite sua mensagem..."
+            placeholderTextColor="#94A3B8"
+            value={draftText}
+            onChangeText={setDraftText}
+            returnKeyType="send"
+            onSubmitEditing={() => {
+              void handleSend();
+            }}
+          />
+
+          <S.SendButton
+            disabled={!draftText.trim() || isSending}
+            $disabled={!draftText.trim() || isSending}
+            activeOpacity={0.75}
+            onPress={() => {
+              void handleSend();
             }}
           >
-            Enviar
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+            <S.SendIcon source={sendMessageIconImg} resizeMode="contain" />
+          </S.SendButton>
+        </S.InputPill>
+      </S.InputBarWrapper>
+    </S.Container>
   );
 }
