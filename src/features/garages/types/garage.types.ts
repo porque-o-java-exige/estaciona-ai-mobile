@@ -48,6 +48,22 @@ export interface GarageDetail {
   updatedAt: string;
 }
 
+export type GarageResponse = GarageDetail;
+
+export interface GarageRequest {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  description: string;
+  features: string[];
+  available: boolean;
+  pricePerDay?: number | null;
+  pricePerHour?: number | null;
+  coverImageUrl?: string | null;
+  images?: string[];
+}
+
 export interface GarageRating {
   garageId: string;
   averageRating: number;
