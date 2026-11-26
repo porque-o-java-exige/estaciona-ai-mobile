@@ -9,8 +9,7 @@ export function useUserNotifications() {
   return useQuery<NotificationItem[]>({
     queryKey: ['notifications', userId],
     enabled: Boolean(userId),
-    queryFn: () => notificationService.getUserNotifications(userId!),
-    refetchInterval: 8000,
+    queryFn: () => notificationService.getUserNotifications(userId!)
   });
 }
 
