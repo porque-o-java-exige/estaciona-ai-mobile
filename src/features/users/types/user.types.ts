@@ -5,15 +5,19 @@ export interface CreateUserRequest {
   phoneNumber: string;
 }
 
+export interface UpdateUserRequest {
+  name: string;
+  email: string;
+  password?: string;
+  phoneNumber: string;
+}
+
 export interface UserResponse {
   id: string;
   name: string;
   email: string;
   phoneNumber: string;
-  photoUrl: string | null;
-  roles: 'ROLE_USER' | 'ROLE_ADMIN' | 'ROLE_OWNER';
-  status: 'ACTIVE' | 'INACTIVE';
-  createdAt: string;
+  photoUrl?: string | null;
 }
 
 export interface PublicUserProfile {
@@ -22,4 +26,10 @@ export interface PublicUserProfile {
   email: string;
   phoneNumber?: string;
   photoUrl?: string | null;
+}
+
+export interface DriverRatingSummary {
+  driverId: string;
+  averageRating: number;
+  totalReviews: number;
 }
