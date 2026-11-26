@@ -24,7 +24,7 @@ export function useChatRooms() {
   return useQuery<ChatRoomResponse[]>({
     queryKey: ['chat-rooms'],
     queryFn: chatService.getUserRooms,
-    refetchInterval: 8000,
+    staleTime: 1000 * 30,
   });
 }
 
@@ -55,7 +55,7 @@ export function useEnrichedChatRooms() {
     queries: roomsWithPeer.map((room) => ({
       queryKey: ['chat-messages', room.roomId],
       queryFn: () => chatService.getRoomMessages(room.roomId),
-      refetchInterval: 6000,
+      staleTime: 1000 * 30,
     })),
   });
 
@@ -86,7 +86,7 @@ export function useRoomMessages(roomId?: string) {
     queryKey: ['chat-messages', roomId],
     enabled: Boolean(roomId),
     queryFn: () => chatService.getRoomMessages(roomId!),
-    refetchInterval: 3000,
+    staleTime: 1000 * 10,
   });
 }
 
