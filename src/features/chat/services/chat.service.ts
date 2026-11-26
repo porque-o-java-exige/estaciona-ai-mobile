@@ -17,14 +17,14 @@ export const chatService = {
 
   async getUserRooms(): Promise<ChatRoomResponse[]> {
     const { data } = await api.get<ChatRoomResponse[]>('/chat/rooms');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   async getRoomMessages(roomId: string): Promise<ChatMessageResponse[]> {
     const { data } = await api.get<ChatMessageResponse[]>(
       `/chat/rooms/${roomId}/messages`
     );
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   async sendMessage(payload: SendMessageRequest): Promise<ChatMessageResponse> {
