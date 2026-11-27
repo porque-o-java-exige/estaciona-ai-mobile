@@ -1,5 +1,4 @@
 import { api } from '@/lib/axios';
-import { useAuthStore } from '@/stores/use-auth-store';
 import {
   GarageDetail,
   GarageNearbyItem,
@@ -67,36 +66,31 @@ export const garageService = {
     fileUri: string,
     mimeType = 'image/jpeg'
   ): Promise<string> {
-    const baseURL = api.defaults.baseURL || '';
-    const token = useAuthStore.getState().token;
+    const normalizedUri =
+      !fileUri.startsWith('file://') && !fileUri.startsWith('content://')
+        ? `file://${fileUri}`
+        : fileUri;
+
+    const filename =
+      normalizedUri.split('/').pop() || `garage-${Date.now()}.jpg`;
 
     const formData = new FormData();
-    const filename = fileUri.split('/').pop() || `garage-${Date.now()}.jpg`;
-
     formData.append('file', {
-      uri: fileUri,
+      uri: normalizedUri,
       name: filename,
       type: mimeType,
     } as unknown as Blob);
 
-    const response = await fetch(`${baseURL}/storage/upload?folder=garages`, {
-      method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Falha no upload da imagem da garagem');
-    }
-
-    const data = (await response.json()) as {
+    const { data } = await api.post<{
       url?: string;
       imageUrl?: string;
       coverImageUrl?: string;
-    };
+    }>('/storage/upload?folder=garages', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      transformRequest: (body) => body,
+    });
 
     const uploadedUrl = data.url || data.imageUrl || data.coverImageUrl;
     if (!uploadedUrl) {

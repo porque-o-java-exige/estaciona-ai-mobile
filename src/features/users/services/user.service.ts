@@ -31,11 +31,17 @@ export const userService = {
     fileUri: string,
     mimeType = 'image/jpeg'
   ): Promise<UserResponse> {
-    const formData = new FormData();
-    const filename = fileUri.split('/').pop() || `avatar-${Date.now()}.jpg`;
+    const normalizedUri =
+      !fileUri.startsWith('file://') && !fileUri.startsWith('content://')
+        ? `file://${fileUri}`
+        : fileUri;
 
+    const filename =
+      normalizedUri.split('/').pop() || `avatar-${Date.now()}.jpg`;
+
+    const formData = new FormData();
     formData.append('file', {
-      uri: fileUri,
+      uri: normalizedUri,
       name: filename,
       type: mimeType,
     } as unknown as Blob);
@@ -47,6 +53,7 @@ export const userService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        transformRequest: (body) => body,
       }
     );
     return data;
